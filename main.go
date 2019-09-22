@@ -1,27 +1,11 @@
 package main
 
-import (
-	"encoding/csv"
-	"log"
-	"os"
-	"path/filepath"
-	"sort"
-	"strings"
-
-	"github.com/couchbase/vellum"
-)
-
 func main() {
-	create := true
-	if create {
-		err := createIndex()
-		if err != nil {
-			panic(err)
-		}
-	}
+	a := aka{}
+	a.create("data/title.akas.tsv", "index/")
 }
 
-func createIndex() error {
+/*func createIndex() error {
 	err := filepath.Walk("./data", func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			log.Printf("prevent panic by handling failure accessing a path %q: %v\n", path, err)
@@ -56,9 +40,9 @@ func readTsv(path string) [][]string {
 		return nil
 	}
 	return recs
-}
+}*/
 
-func createFST(name string, data [][]string) error {
+/*func createFST(name string, data [][]string) error {
 	if data == nil {
 		return nil
 	}
@@ -77,15 +61,7 @@ func createFST(name string, data [][]string) error {
 	}
 	defer builder.Close()
 
-	sort.Slice(data[:], func(i, j int) bool {
-		for x := range data[i] {
-			if data[i][x] == data[j][x] {
-				continue
-			}
-			return data[i][x] < data[j][x]
-		}
-		return false
-	})
+	sortTsv(data)
 
 	for i, d := range data {
 		err = builder.Insert([]byte(d[0]), uint64(i))
@@ -94,7 +70,7 @@ func createFST(name string, data [][]string) error {
 		}
 	}
 	return nil
-}
+}*/
 
 func loadFST(path string) ([][]string, error) {
 	return nil, nil

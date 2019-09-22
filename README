@@ -1,1 +1,2 @@
-fst indexer of imdb in go https://www.imdb.com/interfaces/ \n inspired by: https://github.com/BurntSushi/imdb-rename/tree/master/imdb-index
+fst indexer of imdb in Go https://www.imdb.com/interfaces/ 
+inspired by: https://github.com/BurntSushi/imdb-rename/tree/master/imdb-index
