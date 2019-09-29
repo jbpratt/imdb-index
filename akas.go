@@ -12,50 +12,40 @@ import (
 	"github.com/pkg/errors"
 )
 
-const AKAS = "akas.fst"
+const AKAS = "Akas.fst"
 
-type akas struct {
+type Akas struct {
 	idx *csv.Reader
 	fst *vellum.FST
 }
 
-type akaRecord struct {
+type AkaRecord struct {
 	pos uint64
 	rec string
 }
 
-func akaOpen(P1, P2 string) (*akas, error) {
-	f, err := os.Open(P1)
+func AkaOpen(P1, P2 string) (*Akas, error) {
+	r, err := OpenTsv(P1)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to open tsv")
 	}
-	r := csv.NewReader(f)
-	r.LazyQuotes = true
-	r.FieldsPerRecord = -1
-	r.Comma = '\t'
-
 	fst, err := vellum.Open(filepath.Join(P2, AKAS))
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to open fst")
 	}
 
-	return &akas{idx: r, fst: fst}, nil
+	return &Akas{idx: r, fst: fst}, nil
 }
 
-// create an akas index by reading the akas recs
+// create an Akas index by reading the Akas recs
 // from a given directory and writing to the corresponding
 // index directory
-func akaCreate(P1, P2 string) (*akas, error) {
-	f, err := os.Open(P1)
+func AkaCreate(P1, P2 string) (*Akas, error) {
+	r, err := OpenTsv(P1)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to open tsv")
 	}
-	r := csv.NewReader(f)
-	r.LazyQuotes = true
-	r.FieldsPerRecord = -1
-	r.Comma = '\t'
-
-	f, err = os.Create(filepath.Join(P2, AKAS))
+	f, err := os.Create(filepath.Join(P2, AKAS))
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create index file")
 	}
@@ -68,14 +58,9 @@ func akaCreate(P1, P2 string) (*akas, error) {
 	defer builder.Close()
 
 	var count uint64 = 0x64
-	//sortTsv(recs
 
-	outRecords := []akaRecord{}
-	// currently broken due to sort
-	// What if we read the records into a temp
-	// struct slice, storing the offset with it
-	// sort this slice
-	// and then use builder.Insert in a second loop?
+	outRecords := []AkaRecord{}
+
 	for {
 		rec, err := r.Read()
 		if err == io.EOF {
@@ -90,10 +75,12 @@ func akaCreate(P1, P2 string) (*akas, error) {
 			log.Println(err)
 		}
 
-		outRecords = append(outRecords, akaRecord{uint64(pos), rec[0]})
+		outRecords = append(outRecords, AkaRecord{uint64(pos), rec[0]})
 	}
 
-	sortSlice(outRecords)
+	sort.Slice(outRecords, func(i, j int) bool {
+		return outRecords[i].rec < outRecords[j].rec
+	})
 
 	for _, x := range outRecords {
 		err = builder.Insert([]byte(x.rec), x.pos<<count|x.pos)
@@ -104,10 +91,11 @@ func akaCreate(P1, P2 string) (*akas, error) {
 		count += uint64(x.pos)
 	}
 
-	return akaOpen(P1, P2)
+	return AkaOpen(P1, P2)
 }
 
-func (a *akas) find(id string) error {
+/*
+func (a *Akas) find(id string) error {
 
 	v, ex, err := a.fst.Get([]byte(id))
 	if err != nil {
@@ -120,10 +108,4 @@ func (a *akas) find(id string) error {
 		_ = offset
 	}
 	return errors.New("not implemented")
-}
-
-func sortSlice(data []akaRecord) {
-	sort.Slice(data, func(i, j int) bool {
-		return data[i].rec < data[j].rec
-	})
-}
+}*/
