@@ -17,6 +17,9 @@ import (
 	})
 }*/
 
+// TODO: just return the file and let caller handle
+// this will allow the caller to create a new reader
+// after seeking to the desired position
 func OpenTsv(path string) (*csv.Reader, error) {
 	f, err := os.Open(path)
 	if err != nil {

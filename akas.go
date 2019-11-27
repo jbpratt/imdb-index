@@ -5,16 +5,16 @@ import (
 	"io"
 	"log"
 	"os"
-	"path/filepath"
 	"sort"
 
 	"github.com/couchbase/vellum"
 	"github.com/pkg/errors"
 )
 
-const AKAS = "Akas.fst"
+const fstAka = "index/akas.fst"
+const idxAka = "data/title.akas.tsv"
 
-type Akas struct {
+type Aka struct {
 	idx *csv.Reader
 	fst *vellum.FST
 }
@@ -24,36 +24,36 @@ type AkaRecord struct {
 	rec string
 }
 
-func AkaOpen(P1, P2 string) (*Akas, error) {
-	r, err := OpenTsv(P1)
+func openAka() (*Aka, error) {
+	idx, err := OpenTsv(idxAka)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to open tsv")
 	}
-	fst, err := vellum.Open(filepath.Join(P2, AKAS))
+	fst, err := vellum.Open(fstAka)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to open fst")
 	}
 
-	return &Akas{idx: r, fst: fst}, nil
+	return &Aka{idx: idx, fst: fst}, nil
 }
 
 // create an Akas index by reading the Akas recs
 // from a given directory and writing to the corresponding
 // index directory
-func AkaCreate(P1, P2 string) (*Akas, error) {
-	r, err := OpenTsv(P1)
+func createAka() error {
+	r, err := OpenTsv(idxAka)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to open tsv")
+		return errors.Wrap(err, "failed to open tsv")
 	}
-	f, err := os.Create(filepath.Join(P2, AKAS))
+	f, err := os.Create(fstAka)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to create index file")
+		return errors.Wrap(err, "failed to create index file")
 	}
 	defer f.Close()
 
 	builder, err := vellum.New(f, nil)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to create index builder")
+		return errors.Wrap(err, "failed to create index builder")
 	}
 	defer builder.Close()
 
@@ -68,11 +68,13 @@ func AkaCreate(P1, P2 string) (*Akas, error) {
 		}
 		if err != nil {
 			log.Println(err)
+			return err
 		}
 
 		pos, err := f.Seek(0, 1)
 		if err != nil {
 			log.Println(err)
+			return err
 		}
 
 		outRecords = append(outRecords, AkaRecord{uint64(pos), rec[0]})
@@ -86,16 +88,16 @@ func AkaCreate(P1, P2 string) (*Akas, error) {
 		err = builder.Insert([]byte(x.rec), x.pos<<count|x.pos)
 		if err != nil {
 			log.Println(err)
+			return err
 		}
 
 		count += uint64(x.pos)
 	}
 
-	return AkaOpen(P1, P2)
+	return nil
 }
 
-/*
-func (a *Akas) find(id string) error {
+func (a *Aka) find(id string) error {
 
 	v, ex, err := a.fst.Get([]byte(id))
 	if err != nil {
@@ -106,6 +108,8 @@ func (a *Akas) find(id string) error {
 		offset := v & ((1 << 48) - 1)
 		_ = count
 		_ = offset
+		// need to seek to place in csv where located
+		// I think I just want a bytes.Reader
 	}
 	return errors.New("not implemented")
-}*/
+}
