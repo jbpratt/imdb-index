@@ -10,7 +10,6 @@ import (
 	"net/http"
 	"os"
 	"path"
-	"sort"
 	"strings"
 )
 
@@ -73,6 +72,7 @@ func downloadAll() error {
 	}
 
 	// loop over data sets and download one at a time
+	// send to goroutine eventually
 	for _, set := range dataSets {
 		err = download(set)
 		if err != nil {
@@ -88,7 +88,7 @@ func downloadAll() error {
 func download(ds string) error {
 
 	// create out file
-	f, err := os.OpenFile(filenameWithoutExtension(ds), os.O_RDWR|os.O_CREATE, 0755)
+	f, err := os.OpenFile("data/"+filenameWithoutExtension(ds), os.O_RDWR|os.O_CREATE, 0755)
 	if err != nil {
 		return err
 	}
@@ -126,11 +126,18 @@ func writeSortedCSVRecords(in io.Reader, out io.Writer) error {
 	// since parsing into CSV records has fairly substantial memory overhead.
 	// Since IMDb CSV data never contains a record that spans multiple lines,
 	// this transformation is okay.
+
+	data := make([][]byte, 1000000)
 	scanner := bufio.NewScanner(in)
-	data := scanner.Bytes()
-	sort.Slice(data, func(i int, j int) bool { return data[i] < data[j] })
-	_, err := out.Write(data)
-	return err
+	// remove duplicate rows
+	var prev string
+	for scanner.Scan() {
+		data = append(data, scanner.Bytes())
+		prev = scanner.Text()
+	}
+	//sort.Slice(data, func(i int, j int) bool { return data[i] < data[j] })
+	//_, err := out.Write(data)
+	return nil
 }
 
 func filenameWithoutExtension(fn string) string {
