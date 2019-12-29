@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/csv"
+	"fmt"
 	"io"
 	"log"
 	"os"
@@ -11,49 +12,54 @@ import (
 	"github.com/pkg/errors"
 )
 
-const fstAka = "index/akas.fst"
-const idxAka = "data/title.akas.tsv"
+const AKAS = "akas.fst"
 
-type Aka struct {
+type AkaIndex struct {
+	akas *csv.Reader
+	idx  *IndexReader
+}
+
+type AkaReader struct {
 	idx *csv.Reader
 	fst *vellum.FST
 }
 
 type AkaRecord struct {
+	id  []uint8
 	pos uint64
 	rec string
 }
 
-func openAka() (*Aka, error) {
-	idx, err := OpenTsv(idxAka)
+func openAka() (*AkaReader, error) {
+	idx, err := openTsv("data/" + IMDBAKAS)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to open tsv")
 	}
-	fst, err := vellum.Open(fstAka)
+	fst, err := vellum.Open(AKAS)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to open fst")
 	}
 
-	return &Aka{idx: idx, fst: fst}, nil
+	return &AkaReader{idx: idx, fst: fst}, nil
 }
 
 // create an Akas index by reading the Akas recs
 // from a given directory and writing to the corresponding
 // index directory
 func createAka() error {
-	r, err := OpenTsv(idxAka)
+	r, err := openTsv("data/" + IMDBAKAS)
 	if err != nil {
-		return errors.Wrap(err, "failed to open tsv")
+		return fmt.Errorf("failed to open tsv: %v", err)
 	}
-	f, err := os.Create(fstAka)
+	f, err := os.Create("index/" + AKAS)
 	if err != nil {
-		return errors.Wrap(err, "failed to create index file")
+		return fmt.Errorf("failed to create index file: %v", err)
 	}
 	defer f.Close()
 
 	builder, err := vellum.New(f, nil)
 	if err != nil {
-		return errors.Wrap(err, "failed to create index builder")
+		return fmt.Errorf("failed to create index builder: %v", err)
 	}
 	defer builder.Close()
 
@@ -77,7 +83,7 @@ func createAka() error {
 			return err
 		}
 
-		outRecords = append(outRecords, AkaRecord{uint64(pos), rec[0]})
+		outRecords = append(outRecords, AkaRecord{pos: uint64(pos), rec: rec[0]})
 	}
 
 	sort.Slice(outRecords, func(i, j int) bool {
@@ -97,7 +103,7 @@ func createAka() error {
 	return nil
 }
 
-func (a *Aka) find(id string) error {
+func (a *AkaReader) find(id string) error {
 
 	v, ex, err := a.fst.Get([]byte(id))
 	if err != nil {
