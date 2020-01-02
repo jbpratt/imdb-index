@@ -6,6 +6,7 @@ import (
 	"encoding/csv"
 	"fmt"
 	"io"
+	"log"
 	"math"
 	"os"
 	"strconv"
@@ -128,15 +129,31 @@ func main() {
 	}
 	defer fst.Close()
 
-	id := []byte("tt0000019")
-	upper := append(id, 0xFF)
-	itr, err := fst.Iterator(id, upper)
+	fmt.Println(header)
+	// id := []byte("tt0000019")
+	// upper := append(id, 0xFF)
+	// itr, err := fst.Iterator(id, upper)
+	itr, err := fst.Iterator(nil, nil)
 	for err == nil {
-		key, val := itr.Current()
-		fmt.Printf("contains key: %s val: %d\n", key, val)
+		nul := 0
+		// don't care about val right now
+		key, _ := itr.Current()
+		// checking for nul byte to delimit id
+		for i, b := range key {
+			if b == 0x00 {
+				nul = i
+				break
+			}
+		}
+
+		id := key[:nul]
+		i := nul + 1
+		rating := math.Float32frombits(binary.BigEndian.Uint32(key[i:]))
+		votes := binary.BigEndian.Uint32(key[i+4:])
+		fmt.Println(string(id), rating, votes)
 		err = itr.Next()
 	}
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 }
