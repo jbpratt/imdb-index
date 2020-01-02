@@ -9,12 +9,124 @@ import (
 	"log"
 	"math"
 	"os"
+	"sort"
 	"strconv"
 
 	"github.com/couchbase/vellum"
 )
 
 func main() {
+	tsv, err := os.Open("test-data/title.episode.tsv")
+	if err != nil {
+		panic(err)
+	}
+	defer tsv.Close()
+
+	tvIndexFile, err := os.Create("index/episode.tvshows.fst")
+	if err != nil {
+		panic(err)
+	}
+
+	seasonIndexFile, err := os.Create("index/episode.seasons.fst")
+	if err != nil {
+		panic(err)
+	}
+
+	var buffer []uint8
+	var episodes []Episode
+	// make two builders
+	header := []string{}
+
+	csvReader := csv.NewReader(tsv)
+	csvReader.LazyQuotes = true
+	csvReader.FieldsPerRecord = -1
+	csvReader.Comma = '\t'
+
+	// read sorted episodes
+	for {
+		rec, err := csvReader.Read()
+		if err == io.EOF {
+			break
+		}
+
+		if err != nil {
+			panic(err)
+		}
+
+		if len(header) == 0 {
+			header = rec
+			continue
+		}
+
+		season, _ := strconv.ParseUint(rec[2], 10, 32)
+		episode, _ := strconv.ParseUint(rec[3], 10, 32)
+
+		episodes = append(episodes, Episode{
+			id:       rec[0],
+			tvShowID: rec[1],
+			season:   uint32(season),
+			episode:  uint32(episode),
+		})
+	}
+
+	sort.Slice(episodes, func(i, j int) bool {
+		return episodes[i].tvShowID < episodes[j].tvShowID
+	})
+
+	seasonBuilder, err := vellum.New(seasonIndexFile, nil)
+	if err != nil {
+		panic(err)
+	}
+
+	for i, r := range episodes {
+		for _, b := range []byte(r.tvShowID) {
+			if b == 0 {
+				panic(fmt.Errorf("unsupported rating id with nil byte for %v", r))
+			}
+		}
+
+		for _, u := range []uint8(r.tvShowID) {
+			buffer = append(buffer, u)
+		}
+
+		buffer = append(buffer, 0x00)
+
+		if r.season != 0 {
+			y := make([]byte, 4)
+			binary.BigEndian.PutUint32(y, r.season)
+			for _, u := range y {
+				buffer = append(buffer, u)
+			}
+		}
+
+		if r.episode != 0 {
+			z := make([]byte, 4)
+			binary.BigEndian.PutUint32(z, r.episode)
+			for _, u := range z {
+				buffer = append(buffer, u)
+			}
+		}
+
+		for _, u := range []uint8(r.id) {
+			buffer = append(buffer, u)
+		}
+
+		if err = seasonBuilder.Insert(buffer, uint64(i)); err != nil {
+			panic(err)
+		}
+	}
+
+	if seasonBuilder.Close(); err != nil {
+		panic(err)
+	}
+	seasonIndexFile.Close()
+
+	// loop over eps and write_ep, insert into tvshows builder
+
+	_ = tvIndexFile
+}
+
+func ratings() {
 	tsv, err := os.Open("test-data/title.ratings.tsv")
 	if err != nil {
 		panic(err)
