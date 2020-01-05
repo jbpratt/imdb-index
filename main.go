@@ -34,7 +34,6 @@ func main() {
 
 	var buffer []uint8
 	var episodes []Episode
-	// make two builders
 	header := []string{}
 
 	csvReader := csv.NewReader(tsv)
@@ -78,36 +77,61 @@ func main() {
 		panic(err)
 	}
 
-	for i, r := range episodes {
-		for _, b := range []byte(r.tvShowID) {
+	for i, ep := range episodes {
+		buffer = nil
+		for _, b := range []byte(ep.tvShowID) {
 			if b == 0 {
-				panic(fmt.Errorf("unsupported rating id with nil byte for %v", r))
+				panic(fmt.Errorf("unsupported rating id with nil byte for %v", ep))
 			}
 		}
 
-		for _, u := range []uint8(r.tvShowID) {
+		for _, u := range []uint8(ep.tvShowID) {
 			buffer = append(buffer, u)
 		}
 
 		buffer = append(buffer, 0x00)
 
-		if r.season != 0 {
+		// fn extend_from_slice(&u32_to_bytes(to_optional_season(ep)?)) {
+		if ep.season != 0 {
+			if ep.season == ^uint32(0) {
+				panic(fmt.Errorf("unsupported season number %d for %v", ep.season, ep))
+			}
 			y := make([]byte, 4)
-			binary.BigEndian.PutUint32(y, r.season)
+			binary.BigEndian.PutUint32(y, ep.season)
 			for _, u := range y {
 				buffer = append(buffer, u)
 			}
-		}
-
-		if r.episode != 0 {
+		} else {
+			// uint32 max
 			z := make([]byte, 4)
-			binary.BigEndian.PutUint32(z, r.episode)
+			binary.BigEndian.PutUint32(z, ^uint32(0))
 			for _, u := range z {
 				buffer = append(buffer, u)
 			}
 		}
+		// }
 
-		for _, u := range []uint8(r.id) {
+		// fn extend_from_slice(&u32_to_bytes(to_optional_epnum(ep)?)) {
+		if ep.episode != 0 {
+			if ep.episode == ^uint32(0) {
+				panic(fmt.Errorf("unsupported season number %d for %v", ep.episode, ep))
+			}
+			z := make([]byte, 4)
+			binary.BigEndian.PutUint32(z, ep.episode)
+			for _, u := range z {
+				buffer = append(buffer, u)
+			}
+		} else {
+			// uint32 max
+			z := make([]byte, 4)
+			binary.BigEndian.PutUint32(z, ^uint32(0))
+			for _, u := range z {
+				buffer = append(buffer, u)
+			}
+		}
+		// }
+
+		for _, u := range []uint8(ep.id) {
 			buffer = append(buffer, u)
 		}
 
@@ -121,9 +145,164 @@ func main() {
 	}
 	seasonIndexFile.Close()
 
-	// loop over eps and write_ep, insert into tvshows builder
+	tvBuilder, err := vellum.New(tvIndexFile, nil)
+	if err != nil {
+		panic(err)
+	}
 
-	_ = tvIndexFile
+	for i, ep := range episodes {
+		buffer = nil
+		for _, b := range []byte(ep.id) {
+			if b == 0 {
+				panic(fmt.Errorf("unsupported rating id with nil byte for %v", ep))
+			}
+		}
+
+		for _, u := range []uint8(ep.id) {
+			buffer = append(buffer, u)
+		}
+
+		buffer = append(buffer, 0x00)
+
+		// fn extend_from_slice(&u32_to_bytes(to_optional_season(ep)?)) {
+		if ep.season != 0 {
+			if ep.season == ^uint32(0) {
+				panic(fmt.Errorf("unsupported season number %d for %v", ep.season, ep))
+			}
+			y := make([]byte, 4)
+			binary.BigEndian.PutUint32(y, ep.season)
+			for _, u := range y {
+				buffer = append(buffer, u)
+			}
+		} else {
+			// uint32 max
+			z := make([]byte, 4)
+			binary.BigEndian.PutUint32(z, ^uint32(0))
+			for _, u := range z {
+				buffer = append(buffer, u)
+			}
+		} // }
+
+		// fn extend_from_slice(&u32_to_bytes(to_optional_epnum(ep)?)) {
+		if ep.episode != 0 {
+			if ep.episode == ^uint32(0) {
+				panic(fmt.Errorf("unsupported season number %d for %v", ep.episode, ep))
+			}
+			z := make([]byte, 4)
+			binary.BigEndian.PutUint32(z, ep.episode)
+			for _, u := range z {
+				buffer = append(buffer, u)
+			}
+		} else {
+			// uint32 max
+			z := make([]byte, 4)
+			binary.BigEndian.PutUint32(z, ^uint32(0))
+			for _, u := range z {
+				buffer = append(buffer, u)
+			}
+		} // }
+
+		for _, u := range []uint8(ep.tvShowID) {
+			buffer = append(buffer, u)
+		}
+
+		if err = tvBuilder.Insert(buffer, uint64(i)); err != nil {
+			panic(err)
+		}
+	}
+
+	if tvBuilder.Close(); err != nil {
+		panic(err)
+	}
+	tvIndexFile.Close()
+
+	fmt.Printf("%d episodes indexed", len(episodes))
+
+	fmt.Println("reading seasons index")
+	seasonsFst, err := vellum.Open("index/episode.seasons.fst")
+	if err != nil {
+		panic(err)
+	}
+	defer seasonsFst.Close()
+	fmt.Println(header)
+	itr, err := seasonsFst.Iterator(nil, nil)
+	for err == nil {
+		nul := 0
+		key, _ := itr.Current()
+		for i, b := range key {
+			if b == 0x00 {
+				nul = i
+				break
+			}
+		}
+
+		tvShowID := key[:nul]
+		i := nul + 1
+
+		season := binary.BigEndian.Uint32(key[i:])
+
+		i += 4
+		epnum := binary.BigEndian.Uint32(key[i:])
+
+		i += 4
+		id := key[i:]
+
+		ep := &Episode{
+			id:       string(id),
+			tvShowID: string(tvShowID),
+			season:   season,
+			episode:  epnum,
+		}
+
+		fmt.Println(ep)
+		err = itr.Next()
+	}
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Println("reading tvshows index")
+	tvshowsFst, err := vellum.Open("index/episodes.tvshows.fst")
+	if err != nil {
+		panic(err)
+	}
+	defer tvshowsFst.Close()
+
+	itr, err = tvshowsFst.Iterator(nil, nil)
+	for err == nil {
+		nul := 0
+		key, _ := itr.Current()
+		for i, b := range key {
+			if b == 0x00 {
+				nul = i
+				break
+			}
+		}
+
+		id := key[:nul]
+		i := nul + 1
+
+		season := binary.BigEndian.Uint32(key[i:])
+
+		i += 4
+		epnum := binary.BigEndian.Uint32(key[i:])
+
+		i += 4
+		tvShowID := key[i:]
+
+		ep := &Episode{
+			id:       string(id),
+			tvShowID: string(tvShowID),
+			season:   season,
+			episode:  epnum,
+		}
+
+		fmt.Println(ep)
+		err = itr.Next()
+	}
+	if err != nil {
+		log.Fatal(err)
+	}
 }
 
 func ratings() {
@@ -226,7 +405,7 @@ func ratings() {
 			panic(err)
 		}
 
-		count += 1
+		count++
 	}
 
 	fmt.Println(count, "ratings indexed")
