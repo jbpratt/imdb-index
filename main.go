@@ -144,13 +144,12 @@ func main() {
 			buffer = append(buffer, u)
 		}
 
-		fmt.Println(i, buffer)
 		if err = seasonBuilder.Insert(buffer, uint64(i)); err != nil {
 			panic(err)
 		}
 	}
 
-	if seasonBuilder.Close(); err != nil {
+	if err = seasonBuilder.Close(); err != nil {
 		panic(err)
 	}
 	seasonIndexFile.Close()
@@ -159,6 +158,13 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+
+	sort.Slice(episodes, func(i, j int) bool {
+		if episodes[i].id != episodes[j].id {
+			return episodes[i].id < episodes[j].id
+		}
+		return episodes[i].tvShowID < episodes[j].tvShowID
+	})
 
 	for i, ep := range episodes {
 		buffer = nil
@@ -216,6 +222,7 @@ func main() {
 			buffer = append(buffer, u)
 		}
 
+		fmt.Println(i, buffer)
 		if err = tvBuilder.Insert(buffer, uint64(i)); err != nil {
 			panic(err)
 		}
@@ -226,7 +233,7 @@ func main() {
 	}
 	tvIndexFile.Close()
 
-	fmt.Printf("%d episodes indexed", len(episodes))
+	fmt.Printf("%d episodes indexed\n", len(episodes))
 
 	fmt.Println("reading seasons index")
 	seasonsFst, err := vellum.Open("index/episode.seasons.fst")
