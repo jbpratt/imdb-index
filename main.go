@@ -69,7 +69,16 @@ func main() {
 	}
 
 	sort.Slice(episodes, func(i, j int) bool {
-		return episodes[i].tvShowID < episodes[j].tvShowID
+		if episodes[i].tvShowID != episodes[j].tvShowID {
+			return episodes[i].tvShowID < episodes[j].tvShowID
+		}
+		if episodes[i].season != episodes[j].season {
+			return episodes[i].season < episodes[j].season
+		}
+		if episodes[i].episode != episodes[j].episode {
+			return episodes[i].episode < episodes[j].episode
+		}
+		return episodes[i].id < episodes[j].id
 	})
 
 	seasonBuilder, err := vellum.New(seasonIndexFile, nil)
@@ -135,6 +144,7 @@ func main() {
 			buffer = append(buffer, u)
 		}
 
+		fmt.Println(i, buffer)
 		if err = seasonBuilder.Insert(buffer, uint64(i)); err != nil {
 			panic(err)
 		}
