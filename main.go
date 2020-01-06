@@ -222,7 +222,6 @@ func main() {
 			buffer = append(buffer, u)
 		}
 
-		fmt.Println(i, buffer)
 		if err = tvBuilder.Insert(buffer, uint64(i)); err != nil {
 			panic(err)
 		}
@@ -275,11 +274,11 @@ func main() {
 		err = itr.Next()
 	}
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
 	}
 
 	fmt.Println("reading tvshows index")
-	tvshowsFst, err := vellum.Open("index/episodes.tvshows.fst")
+	tvshowsFst, err := vellum.Open("index/episode.tvshows.fst")
 	if err != nil {
 		panic(err)
 	}
