@@ -16,6 +16,113 @@ import (
 )
 
 func main() {
+	tsv, err := os.Open("test-data/title.akas.tsv")
+	if err != nil {
+		panic(err)
+	}
+	defer tsv.Close()
+
+	indexFile, err := os.Create("index/title.fst")
+	if err != nil {
+		panic(err)
+	}
+
+	var count uint64 = 0
+	var buf bytes.Buffer
+	var offset uint64
+	type Record struct {
+		id       string
+		position uint64
+		count    uint64
+	}
+
+	header := []string{}
+	records := []Record{}
+
+	tr := io.TeeReader(tsv, &buf)
+
+	csvReader := csv.NewReader(tr)
+	csvReader.LazyQuotes = true
+	csvReader.FieldsPerRecord = -1
+	csvReader.Comma = '\t'
+
+	for {
+		rec, err := csvReader.Read()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			panic(err)
+		}
+
+		if len(header) == 0 {
+			header = rec
+			continue
+		}
+
+		line, err := buf.ReadBytes('\n')
+		if err != nil {
+			panic(err)
+		}
+
+		length := len(line)
+		offset += uint64(length)
+
+		records = append(records, Record{rec[0], offset, 1})
+		// check count for priority and ++ if needed
+	}
+
+	sort.Slice(records, func(i, j int) bool {
+		return records[i].id < records[j].id
+	})
+
+	builder, err := vellum.New(indexFile, nil)
+	if err != nil {
+		panic(err)
+	}
+
+	for _, record := range records {
+		if err = builder.Insert([]byte(record.id),
+			(record.count<<48)|record.position); err != nil {
+			panic(err)
+		}
+		count += uint64(record.position)
+	}
+
+	if builder.Close(); err != nil {
+		panic(err)
+	}
+	indexFile.Close()
+
+	fmt.Printf("%d akas indexed\n", len(records))
+
+	fst, err := vellum.Open("index/title.fst")
+	if err != nil {
+		panic(err)
+	}
+	defer fst.Close()
+
+	fmt.Println(header)
+	itr, err := fst.Iterator(nil, nil)
+	for err == nil {
+		key, val := itr.Current()
+
+		id := binary.BigEndian.Uint32(key)
+
+		count := id >> 48
+		offset := val & ((1 << 48) - 1)
+
+		fmt.Println(count, offset)
+		ret, err := tsv.Seek(0, int(offset))
+		if err != nil {
+			panic(err)
+		}
+
+		fmt.Println(count, ret)
+	}
+}
+
+func episodes() {
 	tsv, err := os.Open("test-data/title.episode.tsv")
 	if err != nil {
 		panic(err)
@@ -358,7 +465,6 @@ func ratings() {
 		if err == io.EOF {
 			break
 		}
-
 		if err != nil {
 			panic(err)
 		}
