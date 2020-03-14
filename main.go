@@ -6,7 +6,6 @@ import (
 	"encoding/csv"
 	"fmt"
 	"io"
-	"log"
 	"math"
 	"os"
 	"sort"
@@ -107,7 +106,7 @@ func main() {
 	for err == nil {
 		key, val := itr.Current()
 
-		id := binary.BigEndian.Uint32(key)
+		id := binary.BigEndian.Uint64(key)
 
 		count := id >> 48
 		offset := val & ((1 << 48) - 1)
@@ -117,7 +116,6 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
-
 		fmt.Println(count, ret)
 	}
 }
@@ -207,7 +205,7 @@ func episodes() {
 
 		buffer = append(buffer, 0x00)
 
-		// fn extend_from_slice(&u32_to_bytes(to_optional_season(ep)?)) {
+		// fn extend_from_slice(&u32_to_bytes(to_optional_season(ep)?))
 		if ep.season != 0 {
 			if ep.season == ^uint32(0) {
 				panic(fmt.Errorf("unsupported season number %d for %v", ep.season, ep))
@@ -225,9 +223,8 @@ func episodes() {
 				buffer = append(buffer, u)
 			}
 		}
-		// }
 
-		// fn extend_from_slice(&u32_to_bytes(to_optional_epnum(ep)?)) {
+		// fn extend_from_slice(&u32_to_bytes(to_optional_epnum(ep)?))
 		if ep.episode != 0 {
 			if ep.episode == ^uint32(0) {
 				panic(fmt.Errorf("unsupported season number %d for %v", ep.episode, ep))
@@ -245,7 +242,6 @@ func episodes() {
 				buffer = append(buffer, u)
 			}
 		}
-		// }
 
 		for _, u := range []uint8(ep.id) {
 			buffer = append(buffer, u)
@@ -287,7 +283,7 @@ func episodes() {
 
 		buffer = append(buffer, 0x00)
 
-		// fn extend_from_slice(&u32_to_bytes(to_optional_season(ep)?)) {
+		// fn extend_from_slice(&u32_to_bytes(to_optional_season(ep)?))
 		if ep.season != 0 {
 			if ep.season == ^uint32(0) {
 				panic(fmt.Errorf("unsupported season number %d for %v", ep.season, ep))
@@ -304,9 +300,9 @@ func episodes() {
 			for _, u := range z {
 				buffer = append(buffer, u)
 			}
-		} // }
+		}
 
-		// fn extend_from_slice(&u32_to_bytes(to_optional_epnum(ep)?)) {
+		// fn extend_from_slice(&u32_to_bytes(to_optional_epnum(ep)?))
 		if ep.episode != 0 {
 			if ep.episode == ^uint32(0) {
 				panic(fmt.Errorf("unsupported season number %d for %v", ep.episode, ep))
@@ -323,7 +319,7 @@ func episodes() {
 			for _, u := range z {
 				buffer = append(buffer, u)
 			}
-		} // }
+		}
 
 		for _, u := range []uint8(ep.tvShowID) {
 			buffer = append(buffer, u)
@@ -381,7 +377,7 @@ func episodes() {
 		err = itr.Next()
 	}
 	if err != nil {
-		log.Println(err)
+		panic(err)
 	}
 
 	fmt.Println("reading tvshows index")
@@ -424,7 +420,7 @@ func episodes() {
 		err = itr.Next()
 	}
 	if err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
 }
 
@@ -496,7 +492,7 @@ func ratings() {
 		record := &Rating{id: rec[0], rating: float32(rating), votes: uint32(votes)}
 		buffer = nil
 
-		// write rating {
+		// write rating
 		for _, b := range []byte(record.id) {
 			if b == 0 {
 				panic(fmt.Errorf("unsupported rating id with nil byte for %v", rating))
@@ -521,7 +517,6 @@ func ratings() {
 		for _, u := range y {
 			buffer = append(buffer, u)
 		}
-		// }
 
 		if err = builder.Insert(buffer, uint64(offset)); err != nil {
 			panic(err)
@@ -567,6 +562,6 @@ func ratings() {
 		err = itr.Next()
 	}
 	if err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
 }

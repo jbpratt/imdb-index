@@ -18,21 +18,18 @@ func downloadAll() error {
 	}
 
 	// make dir
-	err := os.Mkdir("data", 0700)
-	if err != nil {
+	if err := os.Mkdir("data", 0700); err != nil {
 		return err
 	}
 
-	err = os.Mkdir("index", 0700)
-	if err != nil {
+	if err := os.Mkdir("index", 0700); err != nil {
 		return err
 	}
 
 	// loop over data sets and download one at a time
 	// send to goroutine eventually
 	for _, set := range dataSets {
-		err = download(set)
-		if err != nil {
+		if err := download(set); err != nil {
 			panic(err)
 		}
 	}
@@ -43,7 +40,6 @@ func downloadAll() error {
 // Downloads a single data set, decompresses it and writes it to the
 // corresponding file path in the given directory.
 func download(ds string) error {
-
 	// create out file
 	f, err := os.OpenFile("data/"+strings.TrimSuffix(ds, path.Ext(ds)), os.O_RDWR|os.O_CREATE, 0755)
 	if err != nil {
@@ -64,8 +60,7 @@ func download(ds string) error {
 	defer r.Close()
 
 	// sort and write
-	err = writeSortedCSVRecords(r, f)
-	if err != nil {
+	if err = writeSortedCSVRecords(r, f); err != nil {
 		return err
 	}
 

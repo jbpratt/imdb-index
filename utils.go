@@ -1,14 +1,8 @@
 package main
 
 import (
-	"bufio"
-	"bytes"
-	"encoding/csv"
 	"fmt"
 	"io"
-	"os"
-
-	"github.com/couchbase/vellum"
 )
 
 const IMDBBaseURL = "https://datasets.imdbws.com"
@@ -47,35 +41,6 @@ var (
 	ErrorUnknownDirective  = fmt.Errorf("unrecognized search directive")
 )
 
-/*func sortTsv(data [][]string) {
-	sort.Slice(data[:], func(i, j int) bool {
-		for x := range data[i] {
-			if data[i][x] == data[j][x] {
-				continue
-			}
-			return data[i][x] < data[j][x]
-		}
-		return false
-	})
-}*/
-
-// TODO: just return the file and let caller handle
-// this will allow the caller to create a new csv reader
-// after seeking to the desired position
-// rename to openFile?
-func openTsv(path string) (*csv.Reader, error) {
-	f, err := os.Open(path)
-	if err != nil {
-		return nil, err
-	}
-	r := csv.NewReader(f)
-	r.LazyQuotes = true
-	r.FieldsPerRecord = -1
-	r.Comma = '\t'
-
-	return r, nil
-}
-
 // Read all CSV data into memory and sort the records in lexicographic order.
 //
 // This is unfortunately necessary because the IMDb data is no longer sorted
@@ -87,20 +52,5 @@ func writeSortedCSVRecords(in io.Reader, out io.Writer) error {
 	// since parsing into CSV records has fairly substantial memory overhead.
 	// Since IMDb CSV data never contains a record that spans multiple lines,
 	// this transformation is okay.
-
-	data := make([][]byte, 1000000)
-	scanner := bufio.NewScanner(in)
-	// remove duplicate rows
-	for scanner.Scan() {
-		data = append(data, scanner.Bytes())
-		//prev := scanner.Text()
-	}
-	//sort.Slice(data, func(i int, j int) bool { return data[i] < data[j] })
-	//_, err := out.Write(data)
 	return nil
-}
-
-func fstMapFile(path string) (*vellum.Builder, error) {
-	var buf bytes.Buffer
-	return vellum.New(&buf, nil)
 }
