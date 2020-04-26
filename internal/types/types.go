@@ -1,5 +1,6 @@
-package main
+package types
 
+// TitleKind is the kind of titles available
 type TitleKind string
 
 const (
@@ -15,7 +16,21 @@ const (
 	VideoGame              = "videoGame"
 )
 
-// An IMDb title record.
+// Query is for searching records
+type Query struct {
+	name        string
+	name_scorer interface{}
+	similarity  interface{}
+	size        uint
+	kinds       []TitleKind
+	year        uint32
+	votes       uint32
+	season      uint32
+	episode     uint32
+	tvShowID    string
+}
+
+// Title is An IMDb title record.
 //
 // This is the primary type of an IMDb media entry. This record defines the
 // identifier of an IMDb title, which serves as a foreign key in other data
@@ -25,15 +40,15 @@ type Title struct {
 	//
 	// Generally, this is a fixed width string beginning with the characters
 	// `tt`.
-	id string
+	Id string
 	// The specific type of a title, e.g., movie, TV show, episode, etc.
-	kind TitleKind
+	Kind TitleKind
 	// The primary name of this title.
-	title string
+	Title string
 	// The "original" name of this title.
-	originalTitle string
+	OriginalTitle string
 	// Whether this title is classified as "adult" material or not.
-	isAdult bool
+	IsAdult bool
 	// The start year of this title.
 	//
 	// Generally, things like movies or TV episodes have a start year to
@@ -43,42 +58,42 @@ type Title struct {
 	// stopped airing.
 	//
 	// Note that not all titles have a start year.
-	startYear uint32
+	StartYear uint32
 	// The end year of this title.
 	//
 	// This is typically used to indicate the ending year of a TV show that
 	// has stopped production.
-	endYear uint32
+	EndYear uint32
 	// The runtime, in minutes, of this title.
-	runtimeMinutes uint32
+	RuntimeMinutes uint32
 	// A comma separated string of genres.
-	genres string
+	Genres string
 }
 
-// A single alternate name.
+// Aka is a single alternate name.
 //
 // Every title has one or more names, and zero or more alternate names. To
 // represent multiple names, AKA or "also known as" records are provided.
 // There may be many AKA records for a single title.
 type Aka struct {
 	// The IMDb identifier that these AKA records describe.
-	id string
+	Id string
 	// The order in which an AKA record should be preferred.
-	order int32
+	Order int32
 	// The alternate name.
-	title string
+	Title string
 	// A geographic region in which this alternate name applies.
-	region string
+	Region string
 	// The language of this alternate name.
-	language string
+	Language string
 	// A comma separated list of types for this name.
-	types string
+	Types string
 	// A comma separated list of attributes for this name.
-	attributes      string
-	isOriginalTitle bool
+	Attributes      string
+	IsOriginalTitle bool
 }
 
-// A single episode record.
+// Episode is a single episode record.
 //
 // An episode record is an entry that joins two title records together, and
 // provides episode specific information, such as the season and episode
@@ -86,22 +101,22 @@ type Aka struct {
 // TV show and the title record for the episode.
 type Episode struct {
 	// The IMDb title identifier for this episode.
-	id string
+	Id string
 	// The IMDb title identifier for the parent TV show of this episode.
-	tvShowID string
+	TvShowID string
 	// The season in which this episode is contained, if it exists.
-	season uint32
+	Season uint32
 	// The episode number of the season in which this episode is contained, if
 	// it exists.
-	episode uint32
+	Episode uint32
 }
 
 // A rating associated with a single title record.
 type Rating struct {
 	// The IMDb title identifier for this rating.
-	id string
+	Id string
 	// The rating, on a scale of 0 to 10, for this title.
-	rating float32
+	Rating float32
 	// The number of votes involved in this rating.
-	votes uint32
+	Votes uint32
 }

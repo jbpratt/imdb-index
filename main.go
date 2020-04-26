@@ -15,6 +15,7 @@ import (
 )
 
 func main() {
+
 	tsv, err := os.Open("test-data/title.akas.tsv")
 	if err != nil {
 		panic(err)
@@ -81,8 +82,7 @@ func main() {
 	}
 
 	for _, record := range records {
-		if err = builder.Insert([]byte(record.id),
-			(record.count<<48)|record.position); err != nil {
+		if err = builder.Insert([]byte(record.id), (record.count<<48)|record.position); err != nil {
 			panic(err)
 		}
 		count += uint64(record.position)
@@ -105,6 +105,9 @@ func main() {
 	itr, err := fst.Iterator(nil, nil)
 	for err == nil {
 		key, val := itr.Current()
+		if key == nil {
+			break
+		}
 
 		id := binary.BigEndian.Uint64(key)
 

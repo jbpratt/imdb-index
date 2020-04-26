@@ -7,9 +7,12 @@ import (
 	"os"
 	"path"
 	"strings"
+	"sync"
 )
 
 func downloadAll() error {
+	var wg sync.WaitGroup
+
 	dataSets := []string{
 		"title.akas.tsv.gz",
 		"title.basics.tsv.gz",
@@ -29,19 +32,21 @@ func downloadAll() error {
 	// loop over data sets and download one at a time
 	// send to goroutine eventually
 	for _, set := range dataSets {
-		if err := download(set); err != nil {
-			panic(err)
-		}
+		wg.Add(1)
+		go download(set, &wg)
 	}
+
+	wg.Wait()
 
 	return nil
 }
 
 // Downloads a single data set, decompresses it and writes it to the
 // corresponding file path in the given directory.
-func download(ds string) error {
+func download(ds string, wg *sync.WaitGroup) error {
+	defer wg.Done()
 	// create out file
-	f, err := os.OpenFile("data/"+strings.TrimSuffix(ds, path.Ext(ds)), os.O_RDWR|os.O_CREATE, 0755)
+	f, err := os.OpenFile(path.Join("data", strings.TrimSuffix(ds, path.Ext(ds))), os.O_RDWR|os.O_CREATE, 0755)
 	if err != nil {
 		return err
 	}
