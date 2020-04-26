@@ -19,20 +19,20 @@ import (
 
 func main() {
 	/*
-		dir := os.TempDir()
-		if err := util.DownloadAll(dir); err != nil {
-			log.Fatal(err)
+			dir := os.TempDir()
+			if err := util.DownloadAll(dir); err != nil {
+				log.Fatal(err)
+			}
+			defer os.RemoveAll(dir)
+		if err := episode("test-data"); err != nil {
+			//if err := episodes(path.Join(dir, "data")); err != nil {
+			if err == vellum.ErrIteratorDone {
+				fmt.Println("Finished interating")
+			} else {
+				panic(err)
+			}
 		}
-		defer os.RemoveAll(dir)
 	*/
-	if err := episodes("test-data"); err != nil {
-		//if err := episodes(path.Join(dir, "data")); err != nil {
-		if err == vellum.ErrIteratorDone {
-			fmt.Println("Finished interating")
-		} else {
-			panic(err)
-		}
-	}
 }
 
 func titles() {

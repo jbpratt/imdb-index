@@ -11,22 +11,47 @@ import (
 	"sort"
 	"strconv"
 
+	"github.com/couchbase/vellum"
 	"github.com/jbpratt78/imdb-index/internal/types"
 	"github.com/jbpratt78/imdb-index/internal/util"
 )
 
-func episodes(datadir string) error {
-	fstShowFile := path.Join("index", " episode.tvshows.fst")
-	fstSeasonFile := path.Join("index", "episode.seasons.fst")
-	tsv, err := os.Open(path.Join(datadir, util.IMDBEpisode))
+type Index struct {
+	tvshows *vellum.FST
+	seasons *vellum.FST
+}
+
+const (
+	SEASONS = "episode.seasons.fst"
+	TVSHOWS = "episode.tvshows.fst"
+)
+
+func Open(indexDir string) (*Index, error) {
+	seasons, err := util.FstSetFile(path.Join(indexDir, SEASONS))
 	if err != nil {
-		return err
+		return nil, err
+	}
+
+	tvshows, err := util.FstSetFile(path.Join(indexDir, TVSHOWS))
+	if err != nil {
+		return nil, err
+	}
+
+	return &Index{tvshows, seasons}, nil
+}
+
+func Create(dataDir, indexDir string) (*Index, error) {
+	fstShowFile := path.Join(indexDir, "episode.tvshows.fst")
+	fstSeasonFile := path.Join(indexDir, "episode.seasons.fst")
+	tsv, err := os.Open(path.Join(dataDir, util.IMDBEpisode))
+	if err != nil {
+		return nil, err
 	}
 	defer tsv.Close()
 
 	episodes, err := readSortedEpisodes(tsv)
 	if err != nil {
-		return fmt.Errorf("failed to read episodes tsv: %v", err)
+		return nil, fmt.Errorf("failed to read episodes tsv: %v", err)
 	}
 
 	sort.Slice(episodes, func(i, j int) bool {
@@ -44,28 +69,28 @@ func episodes(datadir string) error {
 
 	seasonBuilder, seasonIndexFile, err := util.FstSetBuilderFile(fstSeasonFile)
 	if err != nil {
-		return fmt.Errorf("failed to create fst set builder: %v", err)
+		return nil, fmt.Errorf("failed to create fst set builder: %v", err)
 	}
 
 	for i, ep := range episodes {
 		buffer, err := writeEpisode(ep)
 		if err != nil {
-			return fmt.Errorf("failed to write episode: %v", err)
+			return nil, fmt.Errorf("failed to write episode: %v", err)
 		}
 		fmt.Println(buffer)
 		if err = seasonBuilder.Insert(buffer, uint64(i)); err != nil {
-			return fmt.Errorf("failed to insert episode into season builder: %v", err)
+			return nil, fmt.Errorf("failed to insert episode into season builder: %v", err)
 		}
 	}
 
 	if err = seasonBuilder.Close(); err != nil {
-		return fmt.Errorf("failed to close season builder: %v", err)
+		return nil, fmt.Errorf("failed to close season builder: %v", err)
 	}
 	seasonIndexFile.Close()
 
 	tvBuilder, tvIndexFile, err := util.FstSetBuilderFile(fstShowFile)
 	if err != nil {
-		return fmt.Errorf("failed to create fst set builder: %v", err)
+		return nil, fmt.Errorf("failed to create fst set builder: %v", err)
 	}
 
 	sort.Slice(episodes, func(i, j int) bool {
@@ -78,19 +103,34 @@ func episodes(datadir string) error {
 	for i, ep := range episodes {
 		buffer, err := writeTvshow(ep)
 		if err != nil {
-			return fmt.Errorf("failed to write tvshow: %v", err)
+			return nil, fmt.Errorf("failed to write tvshow: %v", err)
 		}
 		if err = tvBuilder.Insert(buffer, uint64(i)); err != nil {
-			return fmt.Errorf("failed to insert into tv builder: %v", err)
+			return nil, fmt.Errorf("failed to insert into tv builder: %v", err)
 		}
 	}
 
 	if tvBuilder.Close(); err != nil {
-		return fmt.Errorf("failed to close tv builder: %v", err)
+		return nil, fmt.Errorf("failed to close tv builder: %v", err)
 	}
 	tvIndexFile.Close()
 
-	fmt.Printf("%d episodes indexed\n", len(episodes))
+	return Open(indexDir)
+}
+
+func (i *Index) episodes(tvshowId []uint8, season uint32) ([]*types.Episode, error) {
+	return nil, nil
+}
+
+func tmp(datadir string) error {
+
+	_, err := Create(datadir, "index")
+	if err != nil {
+		return err
+	}
+
+	fstShowFile := path.Join("index", " episode.tvshows.fst")
+	fstSeasonFile := path.Join("index", "episode.seasons.fst")
 
 	fmt.Println("reading seasons index")
 	seasonsFst, err := util.FstSetFile(fstSeasonFile)
