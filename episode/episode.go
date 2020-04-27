@@ -1,8 +1,7 @@
-package main
+package episode
 
 import (
 	"encoding/binary"
-	"encoding/csv"
 	"fmt"
 	"io"
 	"log"
@@ -26,6 +25,7 @@ const (
 	TVSHOWS = "episode.tvshows.fst"
 )
 
+// Open an index from a previously created `Create` call
 func Open(indexDir string) (*Index, error) {
 	seasons, err := util.FstSetFile(path.Join(indexDir, SEASONS))
 	if err != nil {
@@ -40,7 +40,10 @@ func Open(indexDir string) (*Index, error) {
 	return &Index{tvshows, seasons}, nil
 }
 
+// Create a new index and opens it
 func Create(dataDir, indexDir string) (*Index, error) {
+	// check index dir and create it
+
 	fstShowFile := path.Join(indexDir, "episode.tvshows.fst")
 	fstSeasonFile := path.Join(indexDir, "episode.seasons.fst")
 	tsv, err := os.Open(path.Join(dataDir, util.IMDBEpisode))
@@ -77,7 +80,6 @@ func Create(dataDir, indexDir string) (*Index, error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to write episode: %v", err)
 		}
-		fmt.Println(buffer)
 		if err = seasonBuilder.Insert(buffer, uint64(i)); err != nil {
 			return nil, fmt.Errorf("failed to insert episode into season builder: %v", err)
 		}
@@ -118,65 +120,74 @@ func Create(dataDir, indexDir string) (*Index, error) {
 	return Open(indexDir)
 }
 
-func (i *Index) episodes(tvshowId []uint8, season uint32) ([]*types.Episode, error) {
-	return nil, nil
+func Range(lower, upper []byte, fst *vellum.FST, readFunc func(key []byte) *types.Episode) ([]*types.Episode, error) {
+	var eps []*types.Episode
+	itr, err := fst.Iterator(lower, upper)
+	if err != nil {
+		return nil, err
+	}
+
+	for err == nil {
+		key, _ := itr.Current()
+		if key == nil {
+			break
+		}
+		eps = append(eps, readFunc(key))
+		err = itr.Next()
+	}
+	if err == vellum.ErrIteratorDone {
+		return eps, nil
+	}
+	return nil, fmt.Errorf("iterator did not finish")
 }
 
-func tmp(datadir string) error {
+func (i *Index) Seasons(tvshowId []uint8, season uint32) ([]*types.Episode, error) {
+	return Range(tvshowId, append(tvshowId, 0xFF), i.seasons, readEpisode)
+}
 
-	_, err := Create(datadir, "index")
-	if err != nil {
-		return err
-	}
+func (i *Index) Episodes(tvshowId []uint8, season uint32) ([]*types.Episode, error) {
+	lower := append(tvshowId, 0x00)
+	upper := append(tvshowId, 0x00)
+	buff := make([]byte, 4)
 
-	fstShowFile := path.Join("index", " episode.tvshows.fst")
-	fstSeasonFile := path.Join("index", "episode.seasons.fst")
-
-	fmt.Println("reading seasons index")
-	seasonsFst, err := util.FstSetFile(fstSeasonFile)
-	if err != nil {
-		return fmt.Errorf("failed to open seasons fst: %v", err)
-	}
-	defer seasonsFst.Close()
-	itr, err := seasonsFst.Iterator(nil, nil)
-	for err == nil {
-		key, _ := itr.Current()
-		ep := readEpisode(key)
-		fmt.Println(ep)
-		err = itr.Next()
-	}
-	if err != nil {
-		return err
+	binary.BigEndian.PutUint32(buff, season)
+	for _, u := range buff {
+		lower = append(lower, u)
 	}
 
-	fmt.Println("reading tvshows index")
-	tvshowsFst, err := util.FstSetFile(fstShowFile)
-	if err != nil {
-		return fmt.Errorf("failed to open tvshowsfst: %v", err)
+	buff = make([]byte, 4)
+	binary.BigEndian.PutUint32(buff, 0)
+	for _, u := range buff {
+		lower = append(lower, u)
 	}
-	defer tvshowsFst.Close()
 
-	itr, err = tvshowsFst.Iterator(nil, nil)
-	for err == nil {
-		key, _ := itr.Current()
-		ep := readTvshow(key)
-		fmt.Println(ep)
-		err = itr.Next()
+	buff = make([]byte, 4)
+	binary.BigEndian.PutUint32(buff, season)
+	for _, u := range buff {
+		upper = append(upper, u)
 	}
+
+	buff = make([]byte, 4)
+	binary.BigEndian.PutUint32(buff, ^uint32(0))
+	for _, u := range buff {
+		upper = append(upper, u)
+	}
+	return Range(lower, upper, i.seasons, readEpisode)
+}
+
+func (i *Index) Episode(epId []uint8) (*types.Episode, error) {
+	eps, err := Range(epId, append(epId, 0xFF), i.tvshows, readTvshow)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return nil
+	return eps[0], nil
 }
 
 func readSortedEpisodes(in *os.File) ([]*types.Episode, error) {
 	var episodes []*types.Episode
 	header := []string{}
 
-	csvReader := csv.NewReader(in)
-	csvReader.LazyQuotes = true
-	csvReader.FieldsPerRecord = -1
-	csvReader.Comma = '\t'
+	csvReader := util.CsvRBuilder(in)
 
 	// read sorted episodes
 	for {
@@ -317,14 +328,12 @@ func writeTvshow(ep *types.Episode) ([]uint8, error) {
 
 	buffer = append(buffer, 0x00)
 
-	// fn extend_from_slice(&u32_to_bytes(to_optional_season(ep)?))
 	y := make([]byte, 4)
 	binary.BigEndian.PutUint32(y, valOrMax(ep.Season))
 	for _, u := range y {
 		buffer = append(buffer, u)
 	}
 
-	// fn extend_from_slice(&u32_to_bytes(to_optional_epnum(ep)?))
 	z := make([]byte, 4)
 	binary.BigEndian.PutUint32(z, valOrMax(ep.Episode))
 	for _, u := range z {

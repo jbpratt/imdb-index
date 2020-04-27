@@ -173,7 +173,7 @@ func FstSetBuilderFile(path string) (*vellum.Builder, *os.File, error) {
 	return set, file, nil
 }
 
-func CsvBuilder(in io.Reader) *csv.Reader {
+func CsvRBuilder(in io.Reader) *csv.Reader {
 	csvReader := csv.NewReader(in)
 	csvReader.LazyQuotes = true
 	csvReader.FieldsPerRecord = -1
