@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"os"
 	"testing"
 
@@ -28,7 +29,7 @@ func TestBasic(t *testing.T) {
 	}
 	eps, err := idx.Seasons([]byte("tt0096697"), 2)
 	if err != nil {
-		if err == vellum.ErrIteratorDone {
+		if errors.Is(err, vellum.ErrIteratorDone) {
 		} else {
 			panic(err)
 		}
@@ -60,7 +61,7 @@ func TestBySeason(t *testing.T) {
 	}
 	eps, err := idx.Episodes([]byte("tt0096697"), 2)
 	if err != nil {
-		if err == vellum.ErrIteratorDone {
+		if errors.Is(err, vellum.ErrIteratorDone) {
 		} else {
 			panic(err)
 		}
@@ -87,7 +88,7 @@ func TestTvshow(t *testing.T) {
 
 	ep, err := idx.Episode([]byte("tt0701063"))
 	if err != nil {
-		if err == vellum.ErrIteratorDone {
+		if errors.Is(err, vellum.ErrIteratorDone) {
 		} else {
 			panic(err)
 		}

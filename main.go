@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"encoding/csv"
+	"errors"
 	"fmt"
 	"io"
 	"math"
@@ -233,7 +234,7 @@ func ratings() {
 		// write rating
 		for _, b := range []byte(record.Id) {
 			if b == 0 {
-				panic(fmt.Errorf("unsupported rating id with nil byte for %v", rating))
+				panic(errors.New(fmt.Sprintf("unsupported rating id with nil byte for %v", rating)))
 			}
 		}
 

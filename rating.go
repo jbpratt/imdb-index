@@ -16,6 +16,10 @@ import (
 
 const RATINGS = "ratings.fst"
 
+type RatingsError string
+
+func (e RatingsError) Error() string { return string(e) }
+
 type RatingsIndex struct {
 	idx *vellum.FST
 }
@@ -89,7 +93,7 @@ func RatingsCreate(dataDir, indexDir string) (*RatingsIndex, error) {
 		// write rating
 		for _, b := range []byte(record.Id) {
 			if b == 0 {
-				panic(fmt.Errorf("unsupported rating id with nil byte for %v", rating))
+				return nil, RatingsError(fmt.Sprintf("unsupported rating id with nil byte for %v", rating))
 			}
 		}
 
@@ -120,7 +124,7 @@ func RatingsCreate(dataDir, indexDir string) (*RatingsIndex, error) {
 	}
 
 	if err = ratingsBuilder.Close(); err != nil {
-		return nil, fmt.Errorf("failed to create fst set builder: %v", err)
+		return nil, fmt.Errorf("failed to create fst set builder: %w", err)
 	}
 	ratingsIndexFile.Close()
 

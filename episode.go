@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -17,6 +18,12 @@ import (
 type EpisodeIndex struct {
 	tvshows *vellum.FST
 	seasons *vellum.FST
+}
+
+type EpisodeError string
+
+func (e EpisodeError) Error() string {
+	return string(e)
 }
 
 const (
@@ -53,7 +60,7 @@ func EpisodeCreate(dataDir, indexDir string) (*EpisodeIndex, error) {
 
 	episodes, err := readSortedEpisodes(tsv)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read episodes tsv: %v", err)
+		return nil, EpisodeError(fmt.Sprintf("failed to read episodes tsv: %v", err))
 	}
 
 	sort.Slice(episodes, func(i, j int) bool {
@@ -71,27 +78,27 @@ func EpisodeCreate(dataDir, indexDir string) (*EpisodeIndex, error) {
 
 	seasonBuilder, seasonIndexFile, err := FstSetBuilderFile(fstSeasonFile)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create fst set builder: %v", err)
+		return nil, fmt.Errorf("failed to create fst set builder: %w", err)
 	}
 
 	for i, ep := range episodes {
 		buffer, err := writeEpisode(ep)
 		if err != nil {
-			return nil, fmt.Errorf("failed to write episode: %v", err)
+			return nil, fmt.Errorf("failed to write episode: %w", err)
 		}
 		if err = seasonBuilder.Insert(buffer, uint64(i)); err != nil {
-			return nil, fmt.Errorf("failed to insert episode into season builder: %v", err)
+			return nil, fmt.Errorf("failed to insert episode into season builder: %w", err)
 		}
 	}
 
 	if err = seasonBuilder.Close(); err != nil {
-		return nil, fmt.Errorf("failed to close season builder: %v", err)
+		return nil, fmt.Errorf("failed to close season builder: %w", err)
 	}
 	seasonIndexFile.Close()
 
 	tvBuilder, tvIndexFile, err := FstSetBuilderFile(fstShowFile)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create fst set builder: %v", err)
+		return nil, fmt.Errorf("failed to create fst set builder: %w", err)
 	}
 
 	sort.Slice(episodes, func(i, j int) bool {
@@ -104,22 +111,26 @@ func EpisodeCreate(dataDir, indexDir string) (*EpisodeIndex, error) {
 	for i, ep := range episodes {
 		buffer, err := writeTvshow(ep)
 		if err != nil {
-			return nil, fmt.Errorf("failed to write tvshow: %v", err)
+			return nil, fmt.Errorf("failed to write tvshow: %w", err)
 		}
 		if err = tvBuilder.Insert(buffer, uint64(i)); err != nil {
-			return nil, fmt.Errorf("failed to insert into tv builder: %v", err)
+			return nil, fmt.Errorf("failed to insert into tv builder: %w", err)
 		}
 	}
 
 	if tvBuilder.Close(); err != nil {
-		return nil, fmt.Errorf("failed to close tv builder: %v", err)
+		return nil, fmt.Errorf("failed to close tv builder: %w", err)
 	}
 	tvIndexFile.Close()
 
 	return EpisodeOpen(indexDir)
 }
 
-func EpisodeRange(lower, upper []byte, fst *vellum.FST, readFunc func(key []byte) *types.Episode) ([]*types.Episode, error) {
+func EpisodeRange(
+	lower, upper []byte,
+	fst *vellum.FST,
+	readFunc func(key []byte) *types.Episode,
+) ([]*types.Episode, error) {
 	var eps []*types.Episode
 	itr, err := fst.Iterator(lower, upper)
 	if err != nil {
@@ -134,10 +145,10 @@ func EpisodeRange(lower, upper []byte, fst *vellum.FST, readFunc func(key []byte
 		eps = append(eps, readFunc(key))
 		err = itr.Next()
 	}
-	if err == vellum.ErrIteratorDone {
+	if errors.Is(err, vellum.ErrIteratorDone) {
 		return eps, nil
 	}
-	return nil, fmt.Errorf("iterator did not finish")
+	return nil, EpisodeError("iterator did not finish")
 }
 
 func (i *EpisodeIndex) Seasons(tvshowId []uint8, season uint32) ([]*types.Episode, error) {
@@ -256,7 +267,7 @@ func writeEpisode(ep *types.Episode) ([]uint8, error) {
 	buffer := []uint8{}
 	for _, b := range []byte(ep.TvShowID) {
 		if b == 0 {
-			return nil, fmt.Errorf("unsupported rating id with nil byte for %v", ep)
+			return nil, EpisodeError(fmt.Sprintf("unsupported rating id with nil byte for %v", ep))
 		}
 	}
 
@@ -317,7 +328,7 @@ func writeTvshow(ep *types.Episode) ([]uint8, error) {
 	buffer := []uint8{}
 	for _, b := range []byte(ep.Id) {
 		if b == 0 {
-			return nil, fmt.Errorf("unsupported rating id with nil byte for %v", ep)
+			return nil, EpisodeError(fmt.Sprintf("unsupported rating id with nil byte for %v", ep))
 		}
 	}
 
@@ -350,7 +361,7 @@ func valOrMax(val uint32) uint32 {
 	if val != 0 {
 		return val
 	} else if val == ^uint32(0) {
-		log.Fatal(fmt.Errorf("unsupported number"))
+		log.Fatal(EpisodeError("unsupported number"))
 	}
 	return ^uint32(0)
 }
