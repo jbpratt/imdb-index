@@ -1,4 +1,4 @@
-package util
+package main
 
 import (
 	"bufio"
@@ -102,7 +102,7 @@ func download(file, outdir string) error {
 	defer r.Close()
 
 	// sort and write
-	if err = WriteSortedCSVRecords(r, f); err != nil {
+	if err = writeSortedCSVRecords(r, f); err != nil {
 		return err
 	}
 	return nil
@@ -114,7 +114,7 @@ func download(file, outdir string) error {
 // in lexicographic order with respect to the `tt` identifiers. This appears
 // to be fallout as a result of adding 10 character identifiers (previously,
 // only 9 character identifiers were used).
-func WriteSortedCSVRecords(in io.Reader, out io.Writer) error {
+func writeSortedCSVRecords(in io.Reader, out io.Writer) error {
 	// We actually only sort the raw lines here instead of parsing CSV records,
 	// since parsing into CSV records has fairly substantial memory overhead.
 	// Since IMDb CSV data never contains a record that spans multiple lines,

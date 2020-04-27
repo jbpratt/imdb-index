@@ -13,49 +13,48 @@ import (
 	"strconv"
 
 	"github.com/couchbase/vellum"
-	"github.com/jbpratt78/imdb-index/episode"
 	"github.com/jbpratt78/imdb-index/internal/types"
-	"github.com/jbpratt78/imdb-index/internal/util"
 )
 
 func main() {
 
 	/*
-			dir := os.TempDir()
-			if err := util.DownloadAll(dir); err != nil {
-				log.Fatal(err)
+				dir := os.TempDir()
+				if err := DownloadAll(dir); err != nil {
+					log.Fatal(err)
+				}
+				defer os.RemoveAll(dir)
+			if err := episode.Open("test-data"); err != nil {
+				//if err := episodes(path.Join(dir, "data")); err != nil {
+				if err == vellum.ErrIteratorDone {
+					fmt.Println("Finished interating")
+				} else {
+					panic(err)
+				}
 			}
-			defer os.RemoveAll(dir)
-		if err := episode.Open("test-data"); err != nil {
-			//if err := episodes(path.Join(dir, "data")); err != nil {
+		idx, err := EpisodeOpen("index")
+		if err != nil {
+			panic(err)
+		}
+		eps, err := idx.Episodes([]byte("tt0096697"), 2)
+		if err != nil {
 			if err == vellum.ErrIteratorDone {
 				fmt.Println("Finished interating")
 			} else {
 				panic(err)
 			}
 		}
-	*/
-	idx, err := episode.Open("index")
-	if err != nil {
-		panic(err)
-	}
-	eps, err := idx.Episodes([]byte("tt0096697"), 2)
-	if err != nil {
-		if err == vellum.ErrIteratorDone {
-			fmt.Println("Finished interating")
-		} else {
-			panic(err)
-		}
-	}
 
-	for _, e := range eps {
-		fmt.Printf("%+v\n", e)
-	}
+		for _, e := range eps {
+			fmt.Printf("%+v\n", e)
+		}
+	*/
+	ratings()
 }
 
 func titles() {
 	fstFile := path.Join("index", "title.fst")
-	tsv, err := os.Open(path.Join("test-data", util.IMDBAKAS))
+	tsv, err := os.Open(path.Join("testdata", IMDBAKAS))
 	if err != nil {
 		panic(err)
 	}
@@ -164,7 +163,7 @@ func titles() {
 
 func ratings() {
 	fstRatingsFile := path.Join("index", "ratings.fst")
-	tsv, err := os.Open(path.Join("test-data", util.IMDBRatings))
+	tsv, err := os.Open(path.Join("testdata", IMDBRatings))
 	if err != nil {
 		panic(err)
 	}
