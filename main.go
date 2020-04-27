@@ -13,18 +13,20 @@ import (
 	"strconv"
 
 	"github.com/couchbase/vellum"
+	"github.com/jbpratt78/imdb-index/episode"
 	"github.com/jbpratt78/imdb-index/internal/types"
 	"github.com/jbpratt78/imdb-index/internal/util"
 )
 
 func main() {
+
 	/*
 			dir := os.TempDir()
 			if err := util.DownloadAll(dir); err != nil {
 				log.Fatal(err)
 			}
 			defer os.RemoveAll(dir)
-		if err := episode("test-data"); err != nil {
+		if err := episode.Open("test-data"); err != nil {
 			//if err := episodes(path.Join(dir, "data")); err != nil {
 			if err == vellum.ErrIteratorDone {
 				fmt.Println("Finished interating")
@@ -33,6 +35,22 @@ func main() {
 			}
 		}
 	*/
+	idx, err := episode.Open("index")
+	if err != nil {
+		panic(err)
+	}
+	eps, err := idx.Episodes([]byte("tt0096697"), 2)
+	if err != nil {
+		if err == vellum.ErrIteratorDone {
+			fmt.Println("Finished interating")
+		} else {
+			panic(err)
+		}
+	}
+
+	for _, e := range eps {
+		fmt.Printf("%+v\n", e)
+	}
 }
 
 func titles() {
