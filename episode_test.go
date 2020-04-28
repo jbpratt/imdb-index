@@ -1,19 +1,20 @@
-package episode
+package main
 
 import (
+	"errors"
 	"os"
 	"testing"
 
 	"github.com/couchbase/vellum"
 )
 
-var tmp string
+var epTmpDir string
 
 func TestMain(m *testing.M) {
-	tmp = os.TempDir()
-	defer os.RemoveAll(tmp)
+	epTmpDir = os.TempDir()
+	defer os.RemoveAll(epTmpDir)
 
-	_, err := Create("../testdata", tmp)
+	_, err := EpisodeCreate("testdata", epTmpDir)
 	if err != nil {
 		panic(err)
 	}
@@ -22,13 +23,13 @@ func TestMain(m *testing.M) {
 }
 
 func TestBasic(t *testing.T) {
-	idx, err := Open(tmp)
+	idx, err := EpisodeOpen(epTmpDir)
 	if err != nil {
 		t.Fatalf("failed to create indices: %v", err)
 	}
 	eps, err := idx.Seasons([]byte("tt0096697"), 2)
 	if err != nil {
-		if err == vellum.ErrIteratorDone {
+		if errors.Is(err, vellum.ErrIteratorDone) {
 		} else {
 			panic(err)
 		}
@@ -54,13 +55,13 @@ func TestBasic(t *testing.T) {
 }
 
 func TestBySeason(t *testing.T) {
-	idx, err := Open(tmp)
+	idx, err := EpisodeOpen(epTmpDir)
 	if err != nil {
 		t.Fatalf("failed to create indices: %v", err)
 	}
 	eps, err := idx.Episodes([]byte("tt0096697"), 2)
 	if err != nil {
-		if err == vellum.ErrIteratorDone {
+		if errors.Is(err, vellum.ErrIteratorDone) {
 		} else {
 			panic(err)
 		}
@@ -79,7 +80,7 @@ func TestBySeason(t *testing.T) {
 }
 
 func TestTvshow(t *testing.T) {
-	idx, err := Open(tmp)
+	idx, err := EpisodeOpen(epTmpDir)
 	if err != nil {
 		t.Fatalf("failed to create indices: %v", err)
 	}
@@ -87,7 +88,7 @@ func TestTvshow(t *testing.T) {
 
 	ep, err := idx.Episode([]byte("tt0701063"))
 	if err != nil {
-		if err == vellum.ErrIteratorDone {
+		if errors.Is(err, vellum.ErrIteratorDone) {
 		} else {
 			panic(err)
 		}

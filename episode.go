@@ -1,7 +1,8 @@
-package episode
+package main
 
 import (
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -12,12 +13,18 @@ import (
 
 	"github.com/couchbase/vellum"
 	"github.com/jbpratt78/imdb-index/internal/types"
-	"github.com/jbpratt78/imdb-index/internal/util"
 )
 
-type Index struct {
+// EpisodeIndex allows for searching of tvshows and seasons indices
+type EpisodeIndex struct {
 	tvshows *vellum.FST
 	seasons *vellum.FST
+}
+
+type EpisodeError string
+
+func (e EpisodeError) Error() string {
+	return string(e)
 }
 
 const (
@@ -25,28 +32,26 @@ const (
 	TVSHOWS = "episode.tvshows.fst"
 )
 
-// Open an index from a previously created `Create` call
-func Open(indexDir string) (*Index, error) {
-	seasons, err := util.FstSetFile(path.Join(indexDir, SEASONS))
+// EpisodeOpen opens an index from a previously created `Create` call
+func EpisodeOpen(indexDir string) (*EpisodeIndex, error) {
+	seasons, err := fstSetFile(path.Join(indexDir, SEASONS))
 	if err != nil {
 		return nil, err
 	}
 
-	tvshows, err := util.FstSetFile(path.Join(indexDir, TVSHOWS))
+	tvshows, err := fstSetFile(path.Join(indexDir, TVSHOWS))
 	if err != nil {
 		return nil, err
 	}
 
-	return &Index{tvshows, seasons}, nil
+	return &EpisodeIndex{tvshows, seasons}, nil
 }
 
-// Create a new index and opens it
-func Create(dataDir, indexDir string) (*Index, error) {
-	// check index dir and create it
-
-	fstShowFile := path.Join(indexDir, "episode.tvshows.fst")
-	fstSeasonFile := path.Join(indexDir, "episode.seasons.fst")
-	tsv, err := os.Open(path.Join(dataDir, util.IMDBEpisode))
+// EpisodeCreate creates a new index and opens it
+func EpisodeCreate(dataDir, indexDir string) (*EpisodeIndex, error) {
+	fstShowFile := path.Join(indexDir, TVSHOWS)
+	fstSeasonFile := path.Join(indexDir, SEASONS)
+	tsv, err := os.Open(path.Join(dataDir, IMDBEpisode))
 	if err != nil {
 		return nil, err
 	}
@@ -54,7 +59,7 @@ func Create(dataDir, indexDir string) (*Index, error) {
 
 	episodes, err := readSortedEpisodes(tsv)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read episodes tsv: %v", err)
+		return nil, EpisodeError(fmt.Sprintf("failed to read episodes tsv: %v", err))
 	}
 
 	sort.Slice(episodes, func(i, j int) bool {
@@ -70,29 +75,29 @@ func Create(dataDir, indexDir string) (*Index, error) {
 		return episodes[i].Id < episodes[j].Id
 	})
 
-	seasonBuilder, seasonIndexFile, err := util.FstSetBuilderFile(fstSeasonFile)
+	seasonBuilder, seasonIndexFile, err := fstSetBuilderFile(fstSeasonFile)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create fst set builder: %v", err)
+		return nil, fmt.Errorf("failed to create fst set builder: %w", err)
 	}
 
 	for i, ep := range episodes {
 		buffer, err := writeEpisode(ep)
 		if err != nil {
-			return nil, fmt.Errorf("failed to write episode: %v", err)
+			return nil, fmt.Errorf("failed to write episode: %w", err)
 		}
 		if err = seasonBuilder.Insert(buffer, uint64(i)); err != nil {
-			return nil, fmt.Errorf("failed to insert episode into season builder: %v", err)
+			return nil, fmt.Errorf("failed to insert episode into season builder: %w", err)
 		}
 	}
 
 	if err = seasonBuilder.Close(); err != nil {
-		return nil, fmt.Errorf("failed to close season builder: %v", err)
+		return nil, fmt.Errorf("failed to close season builder: %w", err)
 	}
 	seasonIndexFile.Close()
 
-	tvBuilder, tvIndexFile, err := util.FstSetBuilderFile(fstShowFile)
+	tvBuilder, tvIndexFile, err := fstSetBuilderFile(fstShowFile)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create fst set builder: %v", err)
+		return nil, fmt.Errorf("failed to create fst set builder: %w", err)
 	}
 
 	sort.Slice(episodes, func(i, j int) bool {
@@ -105,22 +110,26 @@ func Create(dataDir, indexDir string) (*Index, error) {
 	for i, ep := range episodes {
 		buffer, err := writeTvshow(ep)
 		if err != nil {
-			return nil, fmt.Errorf("failed to write tvshow: %v", err)
+			return nil, fmt.Errorf("failed to write tvshow: %w", err)
 		}
 		if err = tvBuilder.Insert(buffer, uint64(i)); err != nil {
-			return nil, fmt.Errorf("failed to insert into tv builder: %v", err)
+			return nil, fmt.Errorf("failed to insert into tv builder: %w", err)
 		}
 	}
 
 	if tvBuilder.Close(); err != nil {
-		return nil, fmt.Errorf("failed to close tv builder: %v", err)
+		return nil, fmt.Errorf("failed to close tv builder: %w", err)
 	}
 	tvIndexFile.Close()
 
-	return Open(indexDir)
+	return EpisodeOpen(indexDir)
 }
 
-func Range(lower, upper []byte, fst *vellum.FST, readFunc func(key []byte) *types.Episode) ([]*types.Episode, error) {
+func EpisodeRange(
+	lower, upper []byte,
+	fst *vellum.FST,
+	readFunc func(key []byte) *types.Episode,
+) ([]*types.Episode, error) {
 	var eps []*types.Episode
 	itr, err := fst.Iterator(lower, upper)
 	if err != nil {
@@ -135,48 +144,41 @@ func Range(lower, upper []byte, fst *vellum.FST, readFunc func(key []byte) *type
 		eps = append(eps, readFunc(key))
 		err = itr.Next()
 	}
-	if err == vellum.ErrIteratorDone {
+	if errors.Is(err, vellum.ErrIteratorDone) {
 		return eps, nil
 	}
-	return nil, fmt.Errorf("iterator did not finish")
+	return nil, EpisodeError("iterator did not finish")
 }
 
-func (i *Index) Seasons(tvshowId []uint8, season uint32) ([]*types.Episode, error) {
-	return Range(tvshowId, append(tvshowId, 0xFF), i.seasons, readEpisode)
+func (i *EpisodeIndex) Seasons(tvshowId []uint8, season uint32) ([]*types.Episode, error) {
+	return EpisodeRange(tvshowId, append(tvshowId, 0xFF), i.seasons, readEpisode)
 }
 
-func (i *Index) Episodes(tvshowId []uint8, season uint32) ([]*types.Episode, error) {
+func (i *EpisodeIndex) Episodes(tvshowId []uint8, season uint32) ([]*types.Episode, error) {
 	lower := append(tvshowId, 0x00)
 	upper := append(tvshowId, 0x00)
 	buff := make([]byte, 4)
 
 	binary.BigEndian.PutUint32(buff, season)
-	for _, u := range buff {
-		lower = append(lower, u)
-	}
+	lower = append(lower, buff...)
 
 	buff = make([]byte, 4)
 	binary.BigEndian.PutUint32(buff, 0)
-	for _, u := range buff {
-		lower = append(lower, u)
-	}
+	lower = append(lower, buff...)
 
 	buff = make([]byte, 4)
 	binary.BigEndian.PutUint32(buff, season)
-	for _, u := range buff {
-		upper = append(upper, u)
-	}
+	upper = append(upper, buff...)
 
 	buff = make([]byte, 4)
 	binary.BigEndian.PutUint32(buff, ^uint32(0))
-	for _, u := range buff {
-		upper = append(upper, u)
-	}
-	return Range(lower, upper, i.seasons, readEpisode)
+	upper = append(upper, buff...)
+
+	return EpisodeRange(lower, upper, i.seasons, readEpisode)
 }
 
-func (i *Index) Episode(epId []uint8) (*types.Episode, error) {
-	eps, err := Range(epId, append(epId, 0xFF), i.tvshows, readTvshow)
+func (i *EpisodeIndex) Episode(epId []uint8) (*types.Episode, error) {
+	eps, err := EpisodeRange(epId, append(epId, 0xFF), i.tvshows, readTvshow)
 	if err != nil {
 		return nil, err
 	}
@@ -187,7 +189,7 @@ func readSortedEpisodes(in *os.File) ([]*types.Episode, error) {
 	var episodes []*types.Episode
 	header := []string{}
 
-	csvReader := util.CsvRBuilder(in)
+	csvReader := csvRBuilder(in)
 
 	// read sorted episodes
 	for {
@@ -257,31 +259,21 @@ func writeEpisode(ep *types.Episode) ([]uint8, error) {
 	buffer := []uint8{}
 	for _, b := range []byte(ep.TvShowID) {
 		if b == 0 {
-			return nil, fmt.Errorf("unsupported rating id with nil byte for %v", ep)
+			return nil, EpisodeError(fmt.Sprintf("unsupported rating id with nil byte for %v", ep))
 		}
 	}
 
-	for _, u := range []uint8(ep.TvShowID) {
-		buffer = append(buffer, u)
-	}
-
+	buffer = append(buffer, []uint8(ep.TvShowID)...)
 	buffer = append(buffer, 0x00)
 
 	y := make([]byte, 4)
 	binary.BigEndian.PutUint32(y, valOrMax(ep.Season))
-	for _, u := range y {
-		buffer = append(buffer, u)
-	}
+	buffer = append(buffer, y...)
 
-	z := make([]byte, 4)
-	binary.BigEndian.PutUint32(z, valOrMax(ep.Episode))
-	for _, u := range z {
-		buffer = append(buffer, u)
-	}
-
-	for _, u := range []uint8(ep.Id) {
-		buffer = append(buffer, u)
-	}
+	y = make([]byte, 4)
+	binary.BigEndian.PutUint32(y, valOrMax(ep.Episode))
+	buffer = append(buffer, y...)
+	buffer = append(buffer, []uint8(ep.Id)...)
 
 	return buffer, nil
 }
@@ -318,31 +310,22 @@ func writeTvshow(ep *types.Episode) ([]uint8, error) {
 	buffer := []uint8{}
 	for _, b := range []byte(ep.Id) {
 		if b == 0 {
-			return nil, fmt.Errorf("unsupported rating id with nil byte for %v", ep)
+			return nil, EpisodeError(fmt.Sprintf("unsupported rating id with nil byte for %v", ep))
 		}
 	}
 
-	for _, u := range []uint8(ep.Id) {
-		buffer = append(buffer, u)
-	}
-
+	buffer = append(buffer, []uint8(ep.Id)...)
 	buffer = append(buffer, 0x00)
 
 	y := make([]byte, 4)
 	binary.BigEndian.PutUint32(y, valOrMax(ep.Season))
-	for _, u := range y {
-		buffer = append(buffer, u)
-	}
+	buffer = append(buffer, y...)
 
-	z := make([]byte, 4)
-	binary.BigEndian.PutUint32(z, valOrMax(ep.Episode))
-	for _, u := range z {
-		buffer = append(buffer, u)
-	}
+	y = make([]byte, 4)
+	binary.BigEndian.PutUint32(y, valOrMax(ep.Episode))
+	buffer = append(buffer, y...)
 
-	for _, u := range []uint8(ep.TvShowID) {
-		buffer = append(buffer, u)
-	}
+	buffer = append(buffer, []uint8(ep.TvShowID)...)
 
 	return buffer, nil
 }
@@ -351,7 +334,7 @@ func valOrMax(val uint32) uint32 {
 	if val != 0 {
 		return val
 	} else if val == ^uint32(0) {
-		log.Fatal(fmt.Errorf("unsupported number"))
+		log.Fatal(EpisodeError("unsupported number"))
 	}
 	return ^uint32(0)
 }
