@@ -15,6 +15,7 @@ import (
 	"github.com/jbpratt78/imdb-index/internal/types"
 )
 
+// EpisodeIndex allows for searching of tvshows and seasons indices
 type EpisodeIndex struct {
 	tvshows *vellum.FST
 	seasons *vellum.FST
@@ -31,14 +32,14 @@ const (
 	TVSHOWS = "episode.tvshows.fst"
 )
 
-// Open an index from a previously created `Create` call
+// EpisodeOpen opens an index from a previously created `Create` call
 func EpisodeOpen(indexDir string) (*EpisodeIndex, error) {
-	seasons, err := FstSetFile(path.Join(indexDir, SEASONS))
+	seasons, err := fstSetFile(path.Join(indexDir, SEASONS))
 	if err != nil {
 		return nil, err
 	}
 
-	tvshows, err := FstSetFile(path.Join(indexDir, TVSHOWS))
+	tvshows, err := fstSetFile(path.Join(indexDir, TVSHOWS))
 	if err != nil {
 		return nil, err
 	}
@@ -46,12 +47,10 @@ func EpisodeOpen(indexDir string) (*EpisodeIndex, error) {
 	return &EpisodeIndex{tvshows, seasons}, nil
 }
 
-// Create a new index and opens it
+// EpisodeCreate creates a new index and opens it
 func EpisodeCreate(dataDir, indexDir string) (*EpisodeIndex, error) {
-	// check index dir and create it
-
-	fstShowFile := path.Join(indexDir, "episode.tvshows.fst")
-	fstSeasonFile := path.Join(indexDir, "episode.seasons.fst")
+	fstShowFile := path.Join(indexDir, TVSHOWS)
+	fstSeasonFile := path.Join(indexDir, SEASONS)
 	tsv, err := os.Open(path.Join(dataDir, IMDBEpisode))
 	if err != nil {
 		return nil, err
@@ -76,7 +75,7 @@ func EpisodeCreate(dataDir, indexDir string) (*EpisodeIndex, error) {
 		return episodes[i].Id < episodes[j].Id
 	})
 
-	seasonBuilder, seasonIndexFile, err := FstSetBuilderFile(fstSeasonFile)
+	seasonBuilder, seasonIndexFile, err := fstSetBuilderFile(fstSeasonFile)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create fst set builder: %w", err)
 	}
@@ -96,7 +95,7 @@ func EpisodeCreate(dataDir, indexDir string) (*EpisodeIndex, error) {
 	}
 	seasonIndexFile.Close()
 
-	tvBuilder, tvIndexFile, err := FstSetBuilderFile(fstShowFile)
+	tvBuilder, tvIndexFile, err := fstSetBuilderFile(fstShowFile)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create fst set builder: %w", err)
 	}
@@ -161,27 +160,20 @@ func (i *EpisodeIndex) Episodes(tvshowId []uint8, season uint32) ([]*types.Episo
 	buff := make([]byte, 4)
 
 	binary.BigEndian.PutUint32(buff, season)
-	for _, u := range buff {
-		lower = append(lower, u)
-	}
+	lower = append(lower, buff...)
 
 	buff = make([]byte, 4)
 	binary.BigEndian.PutUint32(buff, 0)
-	for _, u := range buff {
-		lower = append(lower, u)
-	}
+	lower = append(lower, buff...)
 
 	buff = make([]byte, 4)
 	binary.BigEndian.PutUint32(buff, season)
-	for _, u := range buff {
-		upper = append(upper, u)
-	}
+	upper = append(upper, buff...)
 
 	buff = make([]byte, 4)
 	binary.BigEndian.PutUint32(buff, ^uint32(0))
-	for _, u := range buff {
-		upper = append(upper, u)
-	}
+	upper = append(upper, buff...)
+
 	return EpisodeRange(lower, upper, i.seasons, readEpisode)
 }
 
@@ -197,7 +189,7 @@ func readSortedEpisodes(in *os.File) ([]*types.Episode, error) {
 	var episodes []*types.Episode
 	header := []string{}
 
-	csvReader := CsvRBuilder(in)
+	csvReader := csvRBuilder(in)
 
 	// read sorted episodes
 	for {
@@ -271,27 +263,17 @@ func writeEpisode(ep *types.Episode) ([]uint8, error) {
 		}
 	}
 
-	for _, u := range []uint8(ep.TvShowID) {
-		buffer = append(buffer, u)
-	}
-
+	buffer = append(buffer, []uint8(ep.TvShowID)...)
 	buffer = append(buffer, 0x00)
 
 	y := make([]byte, 4)
 	binary.BigEndian.PutUint32(y, valOrMax(ep.Season))
-	for _, u := range y {
-		buffer = append(buffer, u)
-	}
+	buffer = append(buffer, y...)
 
 	y = make([]byte, 4)
 	binary.BigEndian.PutUint32(y, valOrMax(ep.Episode))
-	for _, u := range y {
-		buffer = append(buffer, u)
-	}
-
-	for _, u := range []uint8(ep.Id) {
-		buffer = append(buffer, u)
-	}
+	buffer = append(buffer, y...)
+	buffer = append(buffer, []uint8(ep.Id)...)
 
 	return buffer, nil
 }
@@ -332,27 +314,18 @@ func writeTvshow(ep *types.Episode) ([]uint8, error) {
 		}
 	}
 
-	for _, u := range []uint8(ep.Id) {
-		buffer = append(buffer, u)
-	}
-
+	buffer = append(buffer, []uint8(ep.Id)...)
 	buffer = append(buffer, 0x00)
 
 	y := make([]byte, 4)
 	binary.BigEndian.PutUint32(y, valOrMax(ep.Season))
-	for _, u := range y {
-		buffer = append(buffer, u)
-	}
+	buffer = append(buffer, y...)
 
 	y = make([]byte, 4)
 	binary.BigEndian.PutUint32(y, valOrMax(ep.Episode))
-	for _, u := range y {
-		buffer = append(buffer, u)
-	}
+	buffer = append(buffer, y...)
 
-	for _, u := range []uint8(ep.TvShowID) {
-		buffer = append(buffer, u)
-	}
+	buffer = append(buffer, []uint8(ep.TvShowID)...)
 
 	return buffer, nil
 }

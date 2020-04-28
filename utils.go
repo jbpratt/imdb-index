@@ -19,19 +19,19 @@ import (
 
 const IMDBBaseURL = "https://datasets.imdbws.com"
 
-// The TSV file in the IMDb dataset that defines the canonical set of titles
-// available to us. Each record contains basic information about a title,
-// such as its IMDb identifier (e.g., `tt0096697`), primary title, start year
-// and type. This includes movies, TV shows, episodes and more.
+// IMDBBasics is the TSV file in the IMDb dataset that defines the canonical
+// set of titles available to us. Each record contains basic information about
+// a title, such as its IMDb identifier (e.g., `tt0096697`), primary title,
+// start year and type. This includes movies, TV shows, episodes and more.
 const IMDBBasics = "title.basics.tsv"
 
-// The TSV file in the IMDb dataset that defines alternate names for some of
+// IMDBAKAS is the TSV file in the IMDb dataset that defines alternate names for some of
 // the titles found in IMDB_BASICS. This includes, but is not limited to,
 // titles in different languages. This file uses the IMDb identifier as a
 // foreign key.
 const IMDBAKAS = "title.akas.tsv"
 
-// The TSV file in the IMDb dataset that defines the season and episode
+// IMDBEpisode is the TSV file in the IMDb dataset that defines the season and episode
 // numbers for episodes in TV shows. Each record in this file corresponds to
 // a single episode. There are four columns: the first is the IMDb identifier
 // for the episode. The second is the IMDb identifier for the corresponding
@@ -39,7 +39,7 @@ const IMDBAKAS = "title.akas.tsv"
 // the IMDb identifiers are foreign keys that join the record to IMDB_BASICS.
 const IMDBEpisode = "title.episode.tsv"
 
-// The TSV file in the IMDb dataset that provides ratings for titles in
+// IMDBRatings is the TSV file in the IMDb dataset that provides ratings for titles in
 // IMDB_BASICS. Each title has at most one rating, and a rating corresponds
 // to a rank (a decimal in the range 0-10) and the number of votes involved
 // in creating that rating (from the IMDb web site, presumably).
@@ -53,6 +53,7 @@ var (
 	ErrorUnknownDirective  = fmt.Errorf("unrecognized search directive")
 )
 
+// DownloadAll concurrently downloads all of the imdb datasets and writes them to disk
 func DownloadAll(dir string) error {
 	dataSets := []string{
 		"title.akas.tsv.gz",
@@ -151,7 +152,7 @@ func writeSortedCSVRecords(in io.Reader, out io.Writer) error {
 }
 
 // FstSetFile opens an FST set file for the given path as a memory map
-func FstSetFile(path string) (*vellum.FST, error) {
+func fstSetFile(path string) (*vellum.FST, error) {
 	set, err := vellum.Open(path)
 	if err != nil {
 		return nil, err
@@ -160,7 +161,7 @@ func FstSetFile(path string) (*vellum.FST, error) {
 }
 
 // FstSetFile opens an FST set file for the given path as a memory map
-func FstSetBuilderFile(path string) (*vellum.Builder, *os.File, error) {
+func fstSetBuilderFile(path string) (*vellum.Builder, *os.File, error) {
 	file, err := os.Create(path)
 	if err != nil {
 		return nil, nil, err
@@ -173,7 +174,7 @@ func FstSetBuilderFile(path string) (*vellum.Builder, *os.File, error) {
 	return set, file, nil
 }
 
-func CsvRBuilder(in io.Reader) *csv.Reader {
+func csvRBuilder(in io.Reader) *csv.Reader {
 	csvReader := csv.NewReader(in)
 	csvReader.LazyQuotes = true
 	csvReader.FieldsPerRecord = -1

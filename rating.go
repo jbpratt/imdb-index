@@ -25,7 +25,7 @@ type RatingsIndex struct {
 }
 
 func RatingsOpen(indexDir string) (*RatingsIndex, error) {
-	idx, err := FstSetFile(path.Join(indexDir, RATINGS))
+	idx, err := fstSetFile(path.Join(indexDir, RATINGS))
 	if err != nil {
 		return nil, err
 	}
@@ -47,12 +47,12 @@ func RatingsCreate(dataDir, indexDir string) (*RatingsIndex, error) {
 	var buffer []uint8
 	header := []string{}
 
-	ratingsBuilder, ratingsIndexFile, err := FstSetBuilderFile(fstRatingsFile)
+	ratingsBuilder, ratingsIndexFile, err := fstSetBuilderFile(fstRatingsFile)
 	if err != nil {
 		return nil, err
 	}
 
-	csvReader := CsvRBuilder(tsv)
+	csvReader := csvRBuilder(tsv)
 	// loop
 	for {
 		rec, err := csvReader.Read()
@@ -98,23 +98,16 @@ func RatingsCreate(dataDir, indexDir string) (*RatingsIndex, error) {
 		}
 
 		// append id
-		for _, u := range []uint8(record.Id) {
-			buffer = append(buffer, u)
-		}
-
+		buffer = append(buffer, []uint8(record.Id)...)
 		buffer = append(buffer, 0x00)
 
 		x := make([]byte, 4)
 		binary.BigEndian.PutUint32(x, math.Float32bits(record.Rating))
-		for _, u := range x {
-			buffer = append(buffer, u)
-		}
+		buffer = append(buffer, x...)
 
 		x = make([]byte, 4)
 		binary.BigEndian.PutUint32(x, record.Votes)
-		for _, u := range x {
-			buffer = append(buffer, u)
-		}
+		buffer = append(buffer, x...)
 
 		if err = ratingsBuilder.Insert(buffer, uint64(offset)); err != nil {
 			panic(err)

@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/binary"
 	"encoding/csv"
-	"errors"
 	"fmt"
 	"io"
 	"math"
@@ -234,28 +233,21 @@ func ratings() {
 		// write rating
 		for _, b := range []byte(record.Id) {
 			if b == 0 {
-				panic(errors.New(fmt.Sprintf("unsupported rating id with nil byte for %v", rating)))
+				panic(fmt.Errorf("unsupported rating id with nil byte for %v", rating))
 			}
 		}
 
 		// append id
-		for _, u := range []uint8(record.Id) {
-			buffer = append(buffer, u)
-		}
-
+		buffer = append(buffer, []uint8(record.Id)...)
 		buffer = append(buffer, 0x00)
 
 		x := make([]byte, 4)
 		binary.BigEndian.PutUint32(x, math.Float32bits(record.Rating))
-		for _, u := range x {
-			buffer = append(buffer, u)
-		}
+		buffer = append(buffer, x...)
 
 		y := make([]byte, 4)
 		binary.BigEndian.PutUint32(y, record.Votes)
-		for _, u := range y {
-			buffer = append(buffer, u)
-		}
+		buffer = append(buffer, y...)
 
 		if err = builder.Insert(buffer, uint64(offset)); err != nil {
 			panic(err)
