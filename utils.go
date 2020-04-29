@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	"github.com/couchbase/vellum"
+	"golang.org/x/exp/mmap"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -160,8 +161,8 @@ func fstSetFile(path string) (*vellum.FST, error) {
 	return set, nil
 }
 
-// FstSetFile opens an FST set file for the given path as a memory map
-func fstSetBuilderFile(path string) (*vellum.Builder, *os.File, error) {
+// FstSetFile opens an FST set file for the given path
+func fstSetBuilderFile(path string) (*vellum.Builder, io.ReadCloser, error) {
 	file, err := os.Create(path)
 	if err != nil {
 		return nil, nil, err
@@ -180,4 +181,14 @@ func csvRBuilder(in io.Reader) *csv.Reader {
 	csvReader.FieldsPerRecord = -1
 	csvReader.Comma = '\t'
 	return csvReader
+}
+
+func csvMmap(path string) (*csv.Reader, error) {
+	m, err := mmap.Open(path)
+	if err != nil {
+		return nil, err
+	}
+
+	_ = m
+	return nil, nil
 }

@@ -35,7 +35,7 @@ func RatingsOpen(indexDir string) (*RatingsIndex, error) {
 
 func RatingsCreate(dataDir, indexDir string) (*RatingsIndex, error) {
 
-	fstRatingsFile := path.Join(indexDir, "ratings.fst")
+	fstRatingsFile := path.Join(indexDir, RATINGS)
 	tsv, err := os.Open(path.Join(dataDir, IMDBRatings))
 	if err != nil {
 		return nil, err
