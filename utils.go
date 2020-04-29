@@ -188,7 +188,5 @@ func csvMmap(path string) (*csv.Reader, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	_ = m
-	return nil, nil
+	return csvRBuilder(io.NewSectionReader(m, 0, int64(m.Len()))), nil
 }
