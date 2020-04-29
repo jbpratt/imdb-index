@@ -125,7 +125,7 @@ func EpisodeCreate(dataDir, indexDir string) (*EpisodeIndex, error) {
 	return EpisodeOpen(indexDir)
 }
 
-func EpisodeRange(
+func episodeRange(
 	lower, upper []byte,
 	fst *vellum.FST,
 	readFunc func(key []byte) *types.Episode,
@@ -151,7 +151,7 @@ func EpisodeRange(
 }
 
 func (i *EpisodeIndex) Seasons(tvshowId []uint8, season uint32) ([]*types.Episode, error) {
-	return EpisodeRange(tvshowId, append(tvshowId, 0xFF), i.seasons, readEpisode)
+	return episodeRange(tvshowId, append(tvshowId, 0xFF), i.seasons, readEpisode)
 }
 
 func (i *EpisodeIndex) Episodes(tvshowId []uint8, season uint32) ([]*types.Episode, error) {
@@ -174,11 +174,11 @@ func (i *EpisodeIndex) Episodes(tvshowId []uint8, season uint32) ([]*types.Episo
 	binary.BigEndian.PutUint32(buff, ^uint32(0))
 	upper = append(upper, buff...)
 
-	return EpisodeRange(lower, upper, i.seasons, readEpisode)
+	return episodeRange(lower, upper, i.seasons, readEpisode)
 }
 
 func (i *EpisodeIndex) Episode(epId []uint8) (*types.Episode, error) {
-	eps, err := EpisodeRange(epId, append(epId, 0xFF), i.tvshows, readTvshow)
+	eps, err := episodeRange(epId, append(epId, 0xFF), i.tvshows, readTvshow)
 	if err != nil {
 		return nil, err
 	}

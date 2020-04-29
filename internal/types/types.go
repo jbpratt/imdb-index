@@ -118,5 +118,6 @@ type Rating struct {
 	// The rating, on a scale of 0 to 10, for this title.
 	Rating float32
 	// The number of votes involved in this rating.
-	Votes uint32
+	Votes  uint32
+	Offset uint64
 }
