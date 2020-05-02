@@ -183,10 +183,10 @@ func csvRBuilder(in io.Reader) *csv.Reader {
 	return csvReader
 }
 
-func csvMmap(path string) (*csv.Reader, error) {
+func mmapReader(path string) (*io.SectionReader, error) {
 	m, err := mmap.Open(path)
 	if err != nil {
 		return nil, err
 	}
-	return csvRBuilder(io.NewSectionReader(m, 0, int64(m.Len()))), nil
+	return io.NewSectionReader(m, 0, int64(m.Len())), nil
 }
