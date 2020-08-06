@@ -65,7 +65,7 @@ func titles() {
 		panic(err)
 	}
 
-	var count uint64 = 0
+	//var count uint64 = 0
 	var buf bytes.Buffer
 	var offset uint64
 	type Record struct {
@@ -123,7 +123,6 @@ func titles() {
 		if err = builder.Insert([]byte(record.id), (record.count<<48)|record.position); err != nil {
 			panic(err)
 		}
-		count += uint64(record.position)
 	}
 
 	if builder.Close(); err != nil {

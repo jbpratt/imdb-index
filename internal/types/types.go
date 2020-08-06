@@ -91,6 +91,8 @@ type Aka struct {
 	// A comma separated list of attributes for this name.
 	Attributes      string
 	IsOriginalTitle bool
+	Offset          uint64
+	Count           uint64
 }
 
 // Episode is a single episode record.
